@@ -1,0 +1,69 @@
+# install.packages("odbc")
+# install.packages("DBI")
+
+library(odbc) #Contains drivers to connect to a database
+library(DBI) #Contains functions for interacting with the database
+
+## You will need to have input the details of your own Server connection if needed
+con <- DBI::dbConnect(drv = odbc::odbc(),
+                      Driver = "DRIVER",
+                      Server = "SERVER",
+                      Database = "DB",
+                      Trusted_Connection = "Yes"
+                      ) #optional
+
+# install.packages("RSQL")
+# install.packages("RSQLite")
+# install.packages("tidyverse")
+
+library(RSQL) #Generate and Process 'SQL' Queries in R
+library(RSQLite) #Can create an in-memory SQL database
+library(tidyverse) #Provides helpful functions and sample data to use in R
+library(ggplot2)
+
+
+res <- DBI::dbGetQuery(conn = con,
+                       statement = "
+                SELECT date, SUM(new_cases) AS total_cases, 
+	SUM(cast(new_deaths as INT)) AS total_deaths, 
+	SUM(cast(new_deaths AS INT))/SUM(new_cases)*100 AS DeathPercentage
+FROM CovidDeaths
+WHERE continent is not null
+GROUP BY date 
+ORDER BY 1,2
+                ")
+amer <- DBI::dbGetQuery(conn = con,
+                        statement =  "
+                        SELECT date, SUM(new_cases) AS total_cases, 
+	SUM(cast(new_deaths as INT)) AS total_deaths, 
+	SUM(cast(new_deaths AS INT))/SUM(new_cases)*100 AS DeathPercentage
+FROM CovidDeaths
+WHERE location LIKE '%states%' AND continent is not null 
+GROUP BY date 
+ORDER BY 1,2;")
+
+India <- DBI::dbGetQuery(conn = con,
+                        statement =  "
+                        SELECT date, SUM(new_cases) AS total_cases 
+FROM CovidDeaths
+WHERE location Like '%India%' AND continent is not null 
+GROUP BY date 
+ORDER BY 1,2;")
+
+library(dplyr)
+death_timeline <- as.data.frame(res)
+dt_amer <- as.data.frame(amer)
+dt_bra <- as.data.frame(India)
+
+#### IMPORTANT!!! THIS KEEPS TRACK OF NEW CASES RECORDED FOR THE DAY OF, NOT DEATHS. IT SHOWS THE DIFFERENCE IN TRACKING FOR THE us AND iNDIA VERSUS THE GLOBE
+
+ggplot() +
+  geom_line(data = death_timeline, aes(x = date, y = total_cases, color = "Globe")) +
+  geom_line(data = dt_amer, aes(x = date, y = total_cases, color = "America")) +
+  geom_line(data = dt_bra, aes(x = date, y = total_cases, color = "India")) +
+  labs(y = "Total Cases", 
+       x = NULL,
+       title = "Total Cases Recorded on the Day",
+       color = "Region") +
+  theme_minimal()
+
