@@ -1,0 +1,38 @@
+
+library(RSQL) #Generate and Process 'SQL' Queries in R
+library(RSQLite) #Can create an in-memory SQL database
+library(tidyverse) #Provides helpful functions and sample data to use in R
+library(ggplot2)
+library(odbc) #Contains drivers to connect to a database
+library(DBI) #Contains functions for interacting with the database
+
+library(dplyr)
+
+con <- DBI::dbConnect(drv = odbc::odbc(),
+                      Driver = "ODBC Driver 17 for SQL Server",
+                      Server = "localhost",
+                      Database = "DB",
+                      Trusted_Connection = "Yes"
+                      ) 
+###########################
+# Countries with highest death count per population
+######################
+library(scales)
+
+rate_bar <- DBI::dbGetQuery(conn = con,
+                            statement = "SELECT TOP 10 location, MAX(CAST(total_deaths AS INT)) AS TotalDeathCount
+FROM CovidDeaths
+WHERE continent IS NOT NULL
+GROUP BY location, population
+ORDER BY TotalDeathCount DESC;")
+
+topten <- as.data.frame(rate_bar)
+
+ggplot() +
+  geom_col(data = topten, aes(x=fct_reorder(location, -TotalDeathCount), y=TotalDeathCount)) +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = NULL,
+       y = "Total Death Count",
+       title = "Countries by Highest Total Death Count") 
