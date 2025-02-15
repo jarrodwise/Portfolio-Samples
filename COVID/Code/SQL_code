@@ -1,0 +1,96 @@
+SELECT *
+FROM CovidDeaths
+;
+
+-- SELEct data to use
+
+SELECT location, date, total_cases, new_cases, total_deaths, population
+FROM CovidDeaths
+Order by 1,2;
+
+-- Looking at total cases vs total deaths
+-- Likelihood of dying if you get COVID by country
+SELECT location, date, total_cases, new_cases, total_deaths,((total_deaths/total_cases)*100) AS 'Death_Percentage', population, ((total_cases/population)*100) as 'Infection_Percentage'
+FROM coviddeaths
+WHERE location LIKE '%states%'
+Order by 1,2;
+-- US Rate of COVID Spread
+SELECT 
+	location, date, total_cases, new_cases,  population, 
+	((total_cases/population)*100) as 'Infection_Percentage', 
+	LAG(new_cases, 1, 0) OVER (ORDER BY date) AS 'PreviousCount',
+	((new_cases - LAG(new_cases) OVER (ORDER BY date)) * 1.0/NULLIF(LAG(new_cases) OVER (ORDER BY date), 0))*100 AS 'Percentage_rate_change'
+FROM coviddeaths
+WHERE location LIKE '%states%'
+Order by 1,2;
+
+-- Countries with Highest Infection Rate compared to population
+
+SELECT location, population, continent,
+	MAX(total_cases) AS 'HighestInfectionCount', 
+	MAX((total_cases/population))*100 AS 'HighestInfectionRate'
+FROM CovidDeaths
+GROUP BY location, population, continent
+ORDER BY 3,1;
+
+
+SELECT location, population,
+	MAX(total_cases) AS 'HighestInfectionCount', 
+	MAX((total_cases/population))*100 AS 'HighestInfectionRate'
+FROM CovidDeaths
+GROUP BY location, population
+ORDER BY HighestInfectionRate DESC;
+
+
+-- Countries with Highest Death Count per Population
+
+SELECT location, MAX(CAST(total_deaths AS INT)) AS TotalDeathCount
+FROM CovidDeaths
+WHERE continent IS NOT NULL
+GROUP BY location, population
+ORDER BY TotalDeathCount DESC;
+
+SELECT date, location, MAX(CAST(total_cases AS INT)) AS TotalDeathCount
+FROM CovidDeaths
+WHERE date = '2021-04-01 00:00:00.000' AND continent IS NOT NULL
+GROUP BY date, location, population
+ORDER BY TotalDeathCount DESC;
+
+-- NUMBERS Globally
+
+SELECT date, SUM(new_cases) AS total_cases, 
+	SUM(cast(new_deaths as INT)) AS total_deaths, 
+	SUM(cast(new_deaths AS INT))/SUM(new_cases)*100 AS DeathPercentage
+FROM CovidDeaths
+WHERE continent is not null
+GROUP BY date 
+ORDER BY 1,2;
+
+-- ADD to America
+
+SELECT date, SUM(new_cases) AS total_cases, 
+	SUM(cast(new_deaths as INT)) AS total_deaths, 
+	SUM(cast(new_deaths AS INT))/SUM(new_cases)*100 AS DeathPercentage
+FROM CovidDeaths
+WHERE location Like '%states%' AND continent is not null 
+GROUP BY date 
+ORDER BY 1,2;
+
+-- Brazil
+SELECT date, SUM(new_cases) AS total_cases 
+FROM CovidDeaths
+WHERE location Like '%Brazil%' AND continent is not null 
+GROUP BY date 
+ORDER BY 1,2;
+
+
+
+-- COVID VACCINATIONS EXPLORATION
+SELECT cdea.continent, cdea.location, cdea.date, cdea.population, cva.new_vaccinations,
+SUM(CAST(cva.new_vaccinations as INT)) OVER (Partition by cdea.location ORDER BY cdea.location, cdea.date) AS total_people_vax
+FROM CovidDeaths cdea
+JOIN CovidVaccinations cva
+	ON cdea.location = cva.location
+	AND cdea.date = cva.date
+WHERE cdea.continent is not null
+ORDER BY 2,3;
